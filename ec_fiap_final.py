@@ -6,6 +6,7 @@ from matplotlib.ticker import PercentFormatter
 import datetime
 import numpy as np
 import altair as alt
+import gdown
 
 # Configurações da página do Streamlit
 st.set_page_config(layout="wide", page_title="Dashboard RouteMind",
@@ -35,21 +36,25 @@ with col2:
 
 # Carregamento e preparação dos dados
 try:
-    # Link de download direto do Google Drive
-    url = "https://drive.google.com/uc?id=1HUS0Yk9DiY0FfZrnAq8FoxCvhtp3nMK9&export=download"
-    df = pd.read_csv(url, sep=",", header=0)
+    # Defina a URL e o nome do arquivo de saída
+    url = "https://drive.google.com/uc?id=1HUS0Yk9DiY0FfZrnAq8FoxCvhtp3nMK9"
+    output_filename = 'df_t.csv'
 
-    # Limpa espaços nos nomes das colunas
+    # Use gdown para baixar o arquivo (ele vai lidar com a página de aviso)
+    gdown.download(url, output_filename, quiet=False)
+
+    # Agora leia o arquivo que foi baixado localmente
+    df = pd.read_csv(output_filename)
+
+    # Limpar espaços
     df.columns = df.columns.str.strip()
-
-    # Exibe as colunas carregadas (debug)
-    st.write("Colunas carregadas:", df.columns.tolist())
-    st.write(df.head())
-
+ 
+    st.success("Arquivo CSV carregado com sucesso!") # Feedback visual
+ 
 except Exception as e:
-    st.error(f"Erro ao carregar o CSV: {e}")
+    st.error(f"Erro ao carregar os dados: {e}")
     st.stop()
-
+ 
 # Renomeia colunas para um nome mais amigável
 df.rename(columns={
     "nk_ota_localizer_id": "ID_VENDA",
