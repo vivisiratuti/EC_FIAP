@@ -1,3 +1,6 @@
+# ------------------------------------------------------------
+# PREPARAÇÃO DE BIBLIOTECAS, DADOS E DASHBOARD
+# ------------------------------------------------------------
 # Importa as bibliotecas necessárias
 import pandas as pd
 import streamlit as st
@@ -8,7 +11,7 @@ import numpy as np
 import altair as alt
 import gdown
 
-# Configurações da página do Streamlit
+# Configura a página do Streamlit
 st.set_page_config(layout="wide", page_title="Dashboard RouteMind",
                    page_icon="RouteMind/Assets/Images/Logo_RouteMind.png")
 
@@ -34,22 +37,20 @@ with col1:
 with col2:
     st.header("Mapeamento Inteligente de Rotas e Comportamentos")
 
-# Carregamento e preparação dos dados
+# Carrega e prepara os dados
 try:
-    # Defina a URL e o nome do arquivo de saída
+    # Define a URL e o nome do arquivo de saída
     url = "https://drive.google.com/uc?id=1HUS0Yk9DiY0FfZrnAq8FoxCvhtp3nMK9"
     output_filename = 'df_t.csv'
 
-    # Use gdown para baixar o arquivo (ele vai lidar com a página de aviso)
+    # Usa o gdown para baixar o arquivo
     gdown.download(url, output_filename, quiet=False)
 
-    # Agora leia o arquivo que foi baixado localmente
+    # Lê o arquivo que foi baixado localmente
     df = pd.read_csv(output_filename)
 
-    # Limpar espaços
+    # Limpa os espaços
     df.columns = df.columns.str.strip()
- 
-    st.success("Arquivo CSV carregado com sucesso!") # Feedback visual
  
 except Exception as e:
     st.error(f"Erro ao carregar os dados: {e}")
@@ -71,31 +72,34 @@ df.rename(columns={
     "total_tickets_quantity_success": "QUANTIDADE_TICKETS"
 }, inplace=True)
 
-# Conversões de tipos
+# Converte tipos necessários
 df['DATA_COMPRA'] = pd.to_datetime(df['DATA_COMPRA'], errors='coerce')
 df['VALOR_TICKET'] = pd.to_numeric(df['VALOR_TICKET'], errors='coerce')
 df['HORA_COMPRA'] = pd.to_datetime(df['HORA_COMPRA'], format='%H:%M:%S', errors='coerce').dt.time
 
-# Filtra dados recentes
+# Filtra dados recentes para o dashboard não ficar pesado
 df_filtrado_por_ano = df[(df['DATA_COMPRA'].dt.year >= 2020) & (df['DATA_COMPRA'].dt.year <= 2024)]
 
-# IDs simplificados
+# Cria IDs simplificados para clientes e destinos
 df_filtrado_por_ano['ID_CLIENTE_SIMPLIFICADO'] = pd.factorize(df_filtrado_por_ano['ID_CLIENTE'])[0] + 1
 df_filtrado_por_ano['LOCAL_DESTINO_IDA_SIMPLIFICADO'] = pd.factorize(df_filtrado_por_ano['LOCAL_DESTINO_IDA'])[0] + 1
 
+# ------------------------------------------------------------
+# CÁLCULO DE PROBABILIDADE DE COMPRA POR DESTINO
+# ------------------------------------------------------------
 # Soma tickets por cliente e destino
 tickets_cliente = df_filtrado_por_ano.groupby(['ID_CLIENTE_SIMPLIFICADO', 'LOCAL_DESTINO_IDA_SIMPLIFICADO'])[
     'QUANTIDADE_TICKETS'].sum().reset_index()
 tickets_cliente.rename(columns={'QUANTIDADE_TICKETS': 'TOTAL_TICKETS'}, inplace=True)
 
-# ------------------------------------------------------------
-# CÁLCULO DE PROBABILIDADE DE COMPRA POR DESTINO
-# ------------------------------------------------------------
+# Soma a quantidade de tickets por destino
 volume_tickets_destino = tickets_cliente.groupby('LOCAL_DESTINO_IDA_SIMPLIFICADO')['TOTAL_TICKETS'].sum().reset_index()
 volume_tickets_destino.rename(columns={'TOTAL_TICKETS': 'TOTAL_TICKETS_DESTINO'}, inplace=True)
 
+# Soma a quantidade de tickets total da plataforma
 total_tickets_geral = volume_tickets_destino['TOTAL_TICKETS_DESTINO'].sum()
 
+# Calcula a probabilidade de compra por destino
 probabilidade_destino = volume_tickets_destino.copy()
 probabilidade_destino['PROBABILIDADE_DESTINO'] = probabilidade_destino['TOTAL_TICKETS_DESTINO'] / total_tickets_geral
 probabilidade_destino = probabilidade_destino.sort_values(by='PROBABILIDADE_DESTINO', ascending=False)
@@ -103,47 +107,50 @@ probabilidade_destino = probabilidade_destino.sort_values(by='PROBABILIDADE_DEST
 # ------------------------------------------------------------
 # CÁLCULO DA MÉDIA DE INTERVALO GLOBAL DA PLATAFORMA (FALLBACK)
 # ------------------------------------------------------------
-# 1. Selecionamos apenas as colunas necessárias do DataFrame principal para otimizar a memória.
+# Seleciona apenas as colunas necessárias do DataFrame principal para otimizar a memória
 df_intervalos_globais = df_filtrado_por_ano[['ID_CLIENTE_SIMPLIFICADO', 'DATA_COMPRA']].copy()
 
-# 2. Ordenamos os dados por cliente e, em seguida, pela data da compra.
+# Ordena os dados por cliente e pela data da compra
 df_intervalos_globais.sort_values(by=['ID_CLIENTE_SIMPLIFICADO', 'DATA_COMPRA'], inplace=True)
 
-# 3. Agrupamos por cliente e calculamos a diferença em dias entre cada compra consecutiva.
-#    A primeira compra de cada cliente resultará em 'NaN' (nulo), o que é esperado.
+# Agrupa por cliente e calcula a diferença em dias entre cada compra consecutiva
 df_intervalos_globais['INTERVALO_DIAS'] = df_intervalos_globais.groupby('ID_CLIENTE_SIMPLIFICADO')['DATA_COMPRA'].diff().dt.days
 
-# 4. Calculamos a média de todos os valores na coluna 'INTERVALO_DIAS'.
+# Calcula a média de todos os valores na coluna 'INTERVALO_DIAS'.
 media_global_plataforma = df_intervalos_globais['INTERVALO_DIAS'].mean()
 
-# 5. Verificação de segurança final
+# Verificação de segurança final
 if pd.isna(media_global_plataforma):
     media_global_plataforma = 90.0
 
-
 # ------------------------------------------------------------
-# PREVISÃO DE DATAS DE COMPRA PARA CLIENTES DE ALTO VALOR (VERSÃO FINAL E CORRIGIDA)
+# PREVISÃO DE DATAS DE COMPRA PARA CLIENTES DE ALTO VALOR (OU SEJA, CLIENTES QUE GASTAM ACIMA DA MÉDIA NA PLATAFORMA)
 # ------------------------------------------------------------
+# Calcula gasto médio por cliente
 df_filtrado_por_ano['VALOR_TOTAL_COMPRA'] = df_filtrado_por_ano['VALOR_TICKET'] * df_filtrado_por_ano['QUANTIDADE_TICKETS']
 gasto_por_cliente = df_filtrado_por_ano.groupby('ID_CLIENTE_SIMPLIFICADO')['VALOR_TOTAL_COMPRA'].sum().reset_index()
 gasto_medio_total = gasto_por_cliente['VALOR_TOTAL_COMPRA'].mean()
 
+# Filtra clientes que gastam acima da média na plataforma
 clientes_acima_media = gasto_por_cliente[gasto_por_cliente['VALOR_TOTAL_COMPRA'] > gasto_medio_total]['ID_CLIENTE_SIMPLIFICADO'].tolist()
 df_clientes_alto_valor = df_filtrado_por_ano[df_filtrado_por_ano['ID_CLIENTE_SIMPLIFICADO'].isin(clientes_acima_media)].copy()
 
+# Calcula intervalo de dias entre as compras de clientes alto valor
 df_clientes_alto_valor.sort_values(by=['ID_CLIENTE_SIMPLIFICADO', 'DATA_COMPRA'], inplace=True)
 df_clientes_alto_valor['INTERVALO_DIAS'] = df_clientes_alto_valor.groupby('ID_CLIENTE_SIMPLIFICADO')['DATA_COMPRA'].diff().dt.days
 
+# Calcula a média de intervalo de compras de clientes alto valor
 media_intervalo = df_clientes_alto_valor.groupby('ID_CLIENTE_SIMPLIFICADO')['INTERVALO_DIAS'].mean().reset_index()
 media_intervalo.rename(columns={'INTERVALO_DIAS': 'MEDIA_INTERVALO_DIAS'}, inplace=True)
 
+# Seleciona data da última compra de clientes alto valor
 ultima_compra = df_clientes_alto_valor.groupby('ID_CLIENTE_SIMPLIFICADO')['DATA_COMPRA'].max().reset_index()
 
+# Faz o merge entre dataframes
 previsao = ultima_compra.merge(media_intervalo, on='ID_CLIENTE_SIMPLIFICADO', how='left')
 
-# --- CORREÇÃO DA DIVISÃO POR ZERO ---
-# Adicionamos esta linha para tratar o caso de intervalo médio ser 0.
-# Isso transforma o 0 em NaN, forçando o uso da média geral para esse cliente.
+# --- CORREÇÃO DE DIVISÃO POR ZERO ---
+# Trata o caso de intervalo médio ser 0 (transforma o 0 em NaN, forçando o uso da média geral para esse cliente)
 previsao['MEDIA_INTERVALO_DIAS'].replace(0, np.nan, inplace=True)
 
 # Lógica de preenchimento com fallback
@@ -151,11 +158,10 @@ media_geral_alto_valor = df_clientes_alto_valor['INTERVALO_DIAS'].mean()
 media_a_ser_usada = media_geral_alto_valor if pd.notna(media_geral_alto_valor) else media_global_plataforma
 previsao['MEDIA_INTERVALO_DIAS'] = previsao['MEDIA_INTERVALO_DIAS'].fillna(media_a_ser_usada)
 
-
 # Variável que recebe a data de hoje
 hoje = pd.Timestamp.today().normalize()
 
-# Cálculo para a próxima compra (agora seguro contra divisão por zero)
+# Cacula a próxima compra (protegendo contra divisão por zero)
 dias_passados = (hoje - previsao['DATA_COMPRA']).dt.days.clip(lower=0)
 multiplicador = np.ceil(dias_passados / previsao['MEDIA_INTERVALO_DIAS']).fillna(1)
 previsao['PROXIMA_COMPRA'] = previsao['DATA_COMPRA'] + pd.to_timedelta(
@@ -174,22 +180,25 @@ previsao_df_display['PRÓXIMA COMPRA PREVISTA'] = pd.to_datetime(
 # ------------------------------------------------------------
 # LÓGICA DE SEGMENTAÇÃO DE CLIENTES
 # ------------------------------------------------------------
+# Seleciona data de última compra e considera as compras somente nos últimos 3 anos
 data_maxima = df_filtrado_por_ano['DATA_COMPRA'].max().date()
 data_limite_atividade = pd.Timestamp(data_maxima) - pd.DateOffset(years=3)
 
+# Agrupa por cliente as últimas datas de compra
 contagem_ultima_compra = df_filtrado_por_ano.groupby('ID_CLIENTE_SIMPLIFICADO')['DATA_COMPRA'].max().reset_index()
 
+# Conta clientes ativos (compraram nos últimos 3 anos) e inativos (não compraram nos últimos 3 anos)
 clientes_ativos = contagem_ultima_compra[contagem_ultima_compra['DATA_COMPRA'] >= data_limite_atividade]['ID_CLIENTE_SIMPLIFICADO'].nunique()
 clientes_inativos = df_filtrado_por_ano['ID_CLIENTE_SIMPLIFICADO'].nunique() - clientes_ativos
 
-# Precisamos apenas calcular a lista de clientes frequentes
+# Cria a lista de clientes frequentes (clientes que fizeram mais de uma compra na plataforma)
 contagem_compras = df_filtrado_por_ano.groupby('ID_CLIENTE_SIMPLIFICADO').size().reset_index(name='NUM_COMPRAS')
 clientes_frequentes = contagem_compras[contagem_compras['NUM_COMPRAS'] > 1]['ID_CLIENTE_SIMPLIFICADO'].tolist()
 
-# Agora, criamos a lista de "Clientes Vip" como a interseção de alto valor E frequência.
+# Cria a lista de "Clientes Vip" (clientes que gastam acima da média e compraram mais de uma vez na plataforma)
 clientes_alto_valor_e_frequencia = list(set(clientes_acima_media) & set(clientes_frequentes))
-# --- FIM DA ADIÇÃO ---
 
+# Cria dataframe com as diferentes categorias de clientes
 df_segmentacao = pd.DataFrame({
     'Categoria': [
         'Clientes de Alto Valor',
@@ -206,7 +215,7 @@ df_segmentacao = pd.DataFrame({
 })
 
 # ------------------------------------------------------------
-# LAYOUT FINAL DO DASHBOARD
+# CONSTRUÇÃO DOS GRÁFICOS
 # ------------------------------------------------------------
 st.markdown("---")
 col_prob, col_seg_baixo = st.columns(2)
@@ -246,7 +255,7 @@ col_5dias, col_prev = st.columns(2)
 with col_5dias:
     st.header('Previsão para os Próximos 5 Dias')
 
-    data_inicio_filtro = datetime.date(2025, 9, 10)
+    data_inicio_filtro = datetime.date(2025, 9, 14)
     data_fim_filtro = data_inicio_filtro + datetime.timedelta(days=4)
 
     previsao_5_dias = previsao[
