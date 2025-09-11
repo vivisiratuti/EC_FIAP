@@ -43,6 +43,10 @@ except FileNotFoundError:
     st.error("Erro: O arquivo 'df_t.csv' não foi encontrado. Por favor, verifique o caminho.")
     st.stop()
 
+# Usando virgula como separador e tirando espaços dos nomes das colunas
+st.write("Colunas detectadas:", df.columns.tolist())
+st.write(df.head())
+
 # Renomeia colunas para um nome mais amigável
 df.rename(columns={
     "nk_ota_localizer_id": "ID_VENDA",
