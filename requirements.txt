@@ -1,0 +1,6 @@
+pandas
+streamlit
+matplotlib.pyplot
+datetime
+numpy
+altair
