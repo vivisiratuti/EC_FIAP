@@ -9,7 +9,7 @@ import altair as alt
 
 # Configurações da página do Streamlit
 st.set_page_config(layout="wide", page_title="Dashboard RouteMind",
-                   page_icon="RouteMind/Assets/Images/Logo_RouteMind.svg")
+                   page_icon="RouteMind/Assets/Images/Logo_RouteMind.png")
 
 # Define a cor de fundo com base na identidade visual
 backgroundColor = "#F0F2F6"
