@@ -44,12 +44,20 @@ except FileNotFoundError:
     st.stop()
 
 # Renomeia colunas para um nome mais amigável
-df.columns = [
-    'ID_VENDA', 'ID_CLIENTE', 'DATA_COMPRA', 'HORA_COMPRA',
-    'LOCAL_PARTIDA_IDA', 'LOCAL_DESTINO_IDA', 'LOCAL_PARTIDA_VOLTA',
-    'LOCAL_DESTINO_VOLTA', 'EMPRESA_IDA', 'EMPRESA_VOLTA',
-    'VALOR_TICKET', 'QUANTIDADE_TICKETS'
-]
+df.rename(columns={
+    "nk_ota_localizer_id": "ID_VENDA",
+    "fk_contact": "ID_CLIENTE",
+    "date_purchase": "DATA_COMPRA",
+    "time_purchase": "HORA_COMPRA",
+    "place_origin_departure": "LOCAL_PARTIDA_IDA",
+    "place_destination_departure": "LOCAL_DESTINO_IDA",
+    "place_origin_return": "LOCAL_PARTIDA_VOLTA",
+    "place_destination_return": "LOCAL_DESTINO_VOLTA",
+    "fk_departure_ota_bus_company": "EMPRESA_IDA",
+    "fk_return_ota_bus_company": "EMPRESA_VOLTA",
+    "gmv_success": "VALOR_TICKET",
+    "total_tickets_quantity_success": "QUANTIDADE_TICKETS"
+}, inplace=True)
 
 # Conversões de tipos
 df['DATA_COMPRA'] = pd.to_datetime(df['DATA_COMPRA'], errors='coerce')
