@@ -35,17 +35,20 @@ with col2:
 
 # Carregamento e preparação dos dados
 try:
-    # Colocar o csv em nuvem
+    # Link de download direto do Google Drive
     url = "https://drive.google.com/uc?id=1HUS0Yk9DiY0FfZrnAq8FoxCvhtp3nMK9&export=download"
-    df = pd.read_csv(url)
+    df = pd.read_csv(url, sep=",", header=0)
 
-except FileNotFoundError:
-    st.error("Erro: O arquivo 'df_t.csv' não foi encontrado. Por favor, verifique o caminho.")
+    # Limpa espaços nos nomes das colunas
+    df.columns = df.columns.str.strip()
+
+    # Exibe as colunas carregadas (debug)
+    st.write("Colunas carregadas:", df.columns.tolist())
+    st.write(df.head())
+
+except Exception as e:
+    st.error(f"Erro ao carregar o CSV: {e}")
     st.stop()
-
-# Usando virgula como separador e tirando espaços dos nomes das colunas
-st.write("Colunas detectadas:", df.columns.tolist())
-st.write(df.head())
 
 # Renomeia colunas para um nome mais amigável
 df.rename(columns={
