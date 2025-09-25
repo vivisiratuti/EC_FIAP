@@ -236,7 +236,7 @@ with col_prob:
     plt.tight_layout()
     st.pyplot(fig_prob)
 
-    with col_seg_baixo:
+with col_seg_baixo:
         st.header('Segmentação de Clientes')
         cores_segmentacao = ['#115DCF', '#55ACCF', '#11CFC8', '#ED452B']
         chart_segmentacao_baixo = alt.Chart(df_segmentacao).mark_bar().encode(
@@ -312,4 +312,5 @@ with col_prev:
     st.dataframe(previsao_df_display[['ID do Cliente', 'ÚLTIMA COMPRA', 'PRÓXIMA COMPRA PREVISTA']], hide_index=True)
 
  
+
 
