@@ -255,7 +255,7 @@ col_5dias, col_prev = st.columns(2)
 with col_5dias:
     st.header('Previsão para os Próximos 5 Dias')
 
-    data_inicio_filtro = datetime.date(2025, 9, 25)
+    data_inicio_filtro = datetime.date(2025, 9, 14)
     data_fim_filtro = data_inicio_filtro + datetime.timedelta(days=4)
 
     previsao_5_dias = previsao[
@@ -310,8 +310,4 @@ with col_5dias:
 with col_prev:
     st.header('Previsão de Próxima Compra')
     st.dataframe(previsao_df_display[['ID do Cliente', 'ÚLTIMA COMPRA', 'PRÓXIMA COMPRA PREVISTA']], hide_index=True)
-
  
-
-
-
